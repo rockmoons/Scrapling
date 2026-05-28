@@ -1,11 +1,5 @@
 {
   "framework": "nextjs",
   "buildCommand": "next build",
-  "outputDirectory": ".next",
-  "regions": ["hkg1"],
-  "functions": {
-    "api/scrape.ts": {
-      "maxDuration": 30
-    }
-  }
+  "outputDirectory": ".next"
 }
