@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import * as cheerio from 'cheerio'
 
 export const runtime = 'nodejs'
-export const maxDuration = 30
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message
+  return String(error)
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,24 +25,23 @@ export async function POST(request: NextRequest) {
     let method: 'url' | 'html' = 'html'
 
     if (url) {
-      // Fetch URL
       method = 'url'
       sourceUrl = url
       try {
         const controller = new AbortController()
-        const timeout = setTimeout(() => controller.abort(), 15000)
+        const timeoutId = setTimeout(() => controller.abort(), 15000)
 
         const response = await fetch(url, {
           headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'text/html,application/xhtml+xml',
             'Accept-Language': 'en-US,en;q=0.5',
           },
           signal: controller.signal,
           redirect: 'follow',
         })
 
-        clearTimeout(timeout)
+        clearTimeout(timeoutId)
 
         if (!response.ok) {
           return NextResponse.json(
@@ -56,15 +59,15 @@ export async function POST(request: NextRequest) {
         }
 
         htmlContent = await response.text()
-      } catch (err: any) {
-        if (err.name === 'AbortError') {
+      } catch (err: unknown) {
+        if (err instanceof DOMException && err.name === 'AbortError') {
           return NextResponse.json(
             { success: false, error: 'Request timed out after 15 seconds' },
             { status: 400 }
           )
         }
         return NextResponse.json(
-          { success: false, error: `Failed to fetch URL: ${err.message}` },
+          { success: false, error: `Failed to fetch URL: ${getErrorMessage(err)}` },
           { status: 400 }
         )
       }
@@ -83,7 +86,7 @@ export async function POST(request: NextRequest) {
     const title = $('title').text() || 'No title'
 
     // Execute CSS selector
-    let elements: cheerio.Cheerio
+    let elements: cheerio.Cheerio<any>
     try {
       elements = $(selector)
     } catch {
@@ -99,15 +102,15 @@ export async function POST(request: NextRequest) {
       attributes: Record<string, string>
     }> = []
 
-    elements.each((_, el) => {
+    elements.each((_i: number, el: cheerio.AnyNode) => {
       const $el = $(el)
       const attrs: Record<string, string> = {}
 
-      // Extract attributes
       if (el.type === 'tag') {
+        // eslint-disable-next-line  @typescript-eslint/no-explicit-any
         const attribs = (el as any).attribs || {}
         for (const [key, value] of Object.entries(attribs)) {
-          attrs[key] = value as string
+          attrs[key] = String(value)
         }
       }
 
@@ -129,9 +132,9 @@ export async function POST(request: NextRequest) {
         count: results.length,
       },
     })
-  } catch (err: any) {
+  } catch (err: unknown) {
     return NextResponse.json(
-      { success: false, error: `Server error: ${err.message}` },
+      { success: false, error: `Server error: ${getErrorMessage(err)}` },
       { status: 500 }
     )
   }
