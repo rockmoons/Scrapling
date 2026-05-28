@@ -8,6 +8,12 @@ function getErrorMessage(error: unknown): string {
   return String(error)
 }
 
+function normalizeUrl(raw: string): string {
+  const trimmed = raw.trim()
+  if (/^https?:\/\//i.test(trimmed)) return trimmed
+  return 'https://' + trimmed
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
@@ -26,12 +32,12 @@ export async function POST(request: NextRequest) {
 
     if (url) {
       method = 'url'
-      sourceUrl = url
+      sourceUrl = normalizeUrl(url)
       try {
         const controller = new AbortController()
         const timeoutId = setTimeout(() => controller.abort(), 15000)
 
-        const response = await fetch(url, {
+        const response = await fetch(sourceUrl, {
           headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
             'Accept': 'text/html,application/xhtml+xml',
